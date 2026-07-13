@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500&display=swap');
+
+:root {
+  --burgundy-deep: #1a0508;
+  --burgundy-mid: #3d0c11;
+  --gold: #d4a855;
+  --gold-light: #e8c98a;
+  --cream: #f9f3e8;
+  --cream-muted: #e8d9c4;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background-color: var(--burgundy-deep);
+  color: var(--cream);
+  font-family: 'Inter', system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: 'Playfair Display', Georgia, serif;
+}
+
+/* Leather texture overlay */
+.leather-bg {
+  background-image: url('/template.jpg');
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
+}
+
+/* Gold divider */
+.gold-divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--gold), transparent);
+}
+
+/* Card glass effect */
+.card-glass {
+  background: rgba(20, 4, 8, 0.82);
+  backdrop-filter: blur(2px);
+  border: 1px solid rgba(212, 168, 85, 0.2);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--burgundy-deep);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(212, 168, 85, 0.4);
+  border-radius: 3px;
+}
+
+/* Tag pill */
+.tech-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: rgba(212, 168, 85, 0.12);
+  border: 1px solid rgba(212, 168, 85, 0.35);
+  color: var(--gold-light);
+  letter-spacing: 0.03em;
+}
+
+/* Animated entrance */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fadeUp 0.6s ease both;
+}
