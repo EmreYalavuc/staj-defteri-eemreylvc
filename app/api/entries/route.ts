@@ -30,10 +30,17 @@ export async function POST(req: NextRequest) {
   if (!isAuthed(req))
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const entry: DiaryEntry = await req.json();
-  const db = redis();
-  const current = (await db.get<DiaryEntry[]>(REDIS_KEY)) ?? [];
-  const updated = [...current, entry];
-  await db.set(REDIS_KEY, updated);
-  return NextResponse.json(entry, { status: 201 });
+  if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN)
+    return NextResponse.json({ error: "Redis env vars eksik (Vercel > Settings > Environment Variables)" }, { status: 500 });
+
+  try {
+    const entry: DiaryEntry = await req.json();
+    const db = redis();
+    const current = (await db.get<DiaryEntry[]>(REDIS_KEY)) ?? [];
+    await db.set(REDIS_KEY, [...current, entry]);
+    return NextResponse.json(entry, { status: 201 });
+  } catch (err) {
+    console.error("POST /api/entries:", err);
+    return NextResponse.json({ error: "Veritabanı hatası" }, { status: 500 });
+  }
 }

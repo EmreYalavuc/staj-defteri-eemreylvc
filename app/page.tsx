@@ -293,8 +293,8 @@ function DayCard({ entry, index, onDelete, isAdmin, authToken }: {
       <div className="grid md:grid-cols-2 gap-x-10">
         <Section title="Yapılan Çalışmalar" items={entry.yapilan} />
         <Section title="Edinilen Bilgiler / Kazanımlar" items={entry.kazanimlar} />
-        {(entry.problemler?.length ?? 0) > 0 && <Section title="Karşılaşılan Problemler" items={entry.problemler!} />}
-        {(entry.cozumler?.length ?? 0) > 0 && <Section title="Uygulanan Çözümler" items={entry.cozumler!} />}
+        <Section title="Karşılaşılan Problemler" items={entry.problemler?.length ? entry.problemler : ["—"]} />
+        <Section title="Uygulanan Çözümler" items={entry.cozumler?.length ? entry.cozumler : ["—"]} />
       </div>
       <div className="gold-divider mt-5 mb-4" />
       <Section title="Kullanılan Teknolojiler" items={entry.teknolojiler} variant="tech" />
