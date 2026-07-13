@@ -307,6 +307,33 @@ function DayCard({ entry, index, onDelete, isAdmin, authToken }: {
 interface FormState { tarih: string; amac: string; yapilan: string; teknolojiler: string; kazanimlar: string; problemler: string; cozumler: string; }
 const emptyForm: FormState = { tarih: "", amac: "", yapilan: "", teknolojiler: "", kazanimlar: "", problemler: "", cozumler: "" };
 
+/* ── Form alanı — Modal dışında tanımlı olmalı, aksi hâlde her render'da
+   React bunu farklı bir bileşen sanır, unmount/mount yapar ve odak kaybolur ── */
+const fieldLabelStyle: React.CSSProperties = { display: "block", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.13em", color: "var(--gold)", marginBottom: 6, fontWeight: 500 };
+const fieldInputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(212,168,85,0.25)", borderRadius: 6, padding: "8px 12px", color: "var(--cream)", fontSize: "0.875rem", outline: "none" };
+
+function Field({ label, value, onChange, textarea = false, rows = 3, placeholder, hint, error }: {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  textarea?: boolean;
+  rows?: number;
+  placeholder?: string;
+  hint?: string;
+  error?: string;
+}) {
+  return (
+    <div className="mb-4">
+      <label style={fieldLabelStyle}>{label}</label>
+      {textarea
+        ? <textarea rows={rows} value={value} onChange={onChange} placeholder={placeholder} style={{ ...fieldInputStyle, resize: "vertical" }} />
+        : <input type="text" value={value} onChange={onChange} placeholder={placeholder} style={fieldInputStyle} />}
+      {hint && <p style={{ fontSize: "0.7rem", color: "rgba(249,243,232,0.35)", marginTop: 4 }}>{hint}</p>}
+      {error && <p style={{ fontSize: "0.7rem", color: "#e57373", marginTop: 4 }}>{error}</p>}
+    </div>
+  );
+}
+
 /* ── Modal ── */
 function Modal({ nextGun, onClose, onSave, authToken }: {
   nextGun: number; onClose: () => void; onSave: (entry: DiaryEntry) => void; authToken: string;
@@ -317,8 +344,8 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const set = (key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [key]: e.target.value }));
+  const set = useCallback((key: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [key]: e.target.value })), []);
 
   function validate() {
     const e: Partial<FormState> = {};
@@ -338,7 +365,6 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
     setSaveError("");
 
     try {
-      // 1. Görselleri yükle
       const imageUrls: string[] = [];
       for (const item of pending) {
         const fd = new FormData();
@@ -351,7 +377,6 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
         URL.revokeObjectURL(item.previewUrl);
       }
 
-      // 2. Girdiyi kaydet
       const entry: DiaryEntry = {
         id: crypto.randomUUID(),
         gun: nextGun,
@@ -371,7 +396,10 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
         headers: { "Content-Type": "application/json", ...authHeaders(authToken) },
         body: JSON.stringify(entry),
       });
-      if (!res.ok) throw new Error("Kayıt başarısız");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error ?? `Kayıt başarısız (${res.status})`);
+      }
 
       onSave(entry);
       onClose();
@@ -381,22 +409,6 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
       setSaving(false);
     }
   }
-
-  const labelStyle: React.CSSProperties = { display: "block", fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "0.13em", color: "var(--gold)", marginBottom: 6, fontWeight: 500 };
-  const inputStyle: React.CSSProperties = { width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(212,168,85,0.25)", borderRadius: 6, padding: "8px 12px", color: "var(--cream)", fontSize: "0.875rem", outline: "none" };
-
-  const Field = ({ label, fkey, textarea = false, rows = 3, placeholder, hint }: {
-    label: string; fkey: keyof FormState; textarea?: boolean; rows?: number; placeholder?: string; hint?: string;
-  }) => (
-    <div className="mb-4">
-      <label style={labelStyle}>{label}</label>
-      {textarea
-        ? <textarea rows={rows} value={form[fkey]} onChange={set(fkey)} placeholder={placeholder} style={{ ...inputStyle, resize: "vertical" }} />
-        : <input type="text" value={form[fkey]} onChange={set(fkey)} placeholder={placeholder} style={inputStyle} />}
-      {hint && <p style={{ fontSize: "0.7rem", color: "rgba(249,243,232,0.35)", marginTop: 4 }}>{hint}</p>}
-      {errors[fkey] && <p style={{ fontSize: "0.7rem", color: "#e57373", marginTop: 4 }}>{errors[fkey]}</p>}
-    </div>
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -414,19 +426,19 @@ function Modal({ nextGun, onClose, onSave, authToken }: {
         <div className="gold-divider mx-6" />
         <form onSubmit={handleSubmit} className="px-6 py-5">
           <div className="grid grid-cols-2 gap-4">
-            <div><Field label="Tarih" fkey="tarih" placeholder="13.07.2026" /></div>
+            <div><Field label="Tarih" value={form.tarih} onChange={set("tarih")} placeholder="13.07.2026" error={errors.tarih} /></div>
           </div>
-          <Field label="Günün Amacı" fkey="amac" placeholder="Bugünkü hedef..." />
-          <Field label="Yapılan Çalışmalar" fkey="yapilan" textarea rows={4}
-            placeholder={"Her satıra bir madde\nÖrnek madde 1"} hint="Her satır ayrı bir madde olur" />
-          <Field label="Kullanılan Teknolojiler" fkey="teknolojiler" placeholder="React, TypeScript, Git" hint="Virgülle ayır" />
-          <Field label="Edinilen Bilgiler / Kazanımlar" fkey="kazanimlar" textarea rows={3}
-            placeholder="Her satıra bir kazanım" hint="Her satır ayrı bir madde olur" />
+          <Field label="Günün Amacı" value={form.amac} onChange={set("amac")} placeholder="Bugünkü hedef..." error={errors.amac} />
+          <Field label="Yapılan Çalışmalar" value={form.yapilan} onChange={set("yapilan")} textarea rows={4}
+            placeholder={"Her satıra bir madde\nÖrnek madde 1"} hint="Her satır ayrı bir madde olur" error={errors.yapilan} />
+          <Field label="Kullanılan Teknolojiler" value={form.teknolojiler} onChange={set("teknolojiler")} placeholder="React, TypeScript, Git" hint="Virgülle ayır" error={errors.teknolojiler} />
+          <Field label="Edinilen Bilgiler / Kazanımlar" value={form.kazanimlar} onChange={set("kazanimlar")} textarea rows={3}
+            placeholder="Her satıra bir kazanım" hint="Her satır ayrı bir madde olur" error={errors.kazanimlar} />
           <div className="gold-divider mb-4" />
           <p style={{ fontSize: "0.65rem", color: "rgba(249,243,232,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 12 }}>İsteğe bağlı</p>
-          <Field label="Karşılaşılan Problemler" fkey="problemler" textarea rows={2}
+          <Field label="Karşılaşılan Problemler" value={form.problemler} onChange={set("problemler")} textarea rows={2}
             placeholder="Her satıra bir problem" hint="Her satır ayrı bir madde olur" />
-          <Field label="Uygulanan Çözümler" fkey="cozumler" textarea rows={2}
+          <Field label="Uygulanan Çözümler" value={form.cozumler} onChange={set("cozumler")} textarea rows={2}
             placeholder="Her satıra bir çözüm" hint="Her satır ayrı bir madde olur" />
           <ImageUpload pending={pending} onChange={setPending} />
           {saveError && <p style={{ fontSize: "0.75rem", color: "#e57373", marginBottom: 8 }}>{saveError}</p>}
