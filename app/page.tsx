@@ -26,8 +26,8 @@ function authHeaders(token: string) {
   return { Authorization: `Bearer ${token}` };
 }
 
-/* ── PDF üretme ── */
-async function generatePDF(entry: DiaryEntry) {
+/* ── PDF üretme (print window) ── */
+function generatePDF(entry: DiaryEntry) {
   const sec = (title: string, items: string[]) =>
     items.length
       ? `<div style="margin-bottom:18px">
@@ -42,66 +42,56 @@ async function generatePDF(entry: DiaryEntry) {
     ? `<div style="margin-top:22px;border-top:1px solid #e0e0e0;padding-top:18px">
          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:#7a1a22;margin-bottom:10px;font-weight:600">Görseller</div>
          <div style="display:flex;flex-wrap:wrap;gap:8px">
-           ${entry.imageUrls.map((u) => `<img src="${u}" style="width:200px;height:150px;object-fit:cover;border-radius:4px;border:1px solid #ddd">`).join("")}
+           ${entry.imageUrls.map((u) => `<img src="${u}" crossorigin="anonymous" style="width:200px;height:150px;object-fit:cover;border-radius:4px;border:1px solid #ddd">`).join("")}
          </div>
        </div>`
     : "";
 
-  const htmlContent = `
-    <div style="width:760px;padding:52px;background:#fff;font-family:Georgia,serif;color:#1a1a1a">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #7a1a22;padding-bottom:14px;margin-bottom:22px">
-        <div>
-          <div style="font-size:9px;text-transform:uppercase;letter-spacing:.18em;color:#7a1a22;margin-bottom:5px">Staj Defteri</div>
-          <h1 style="font-size:24px;margin:0;color:#1a1a1a">${entry.gun}. Gün — ${entry.tarih}</h1>
-        </div>
-        <div style="font-size:10px;color:#999;text-align:right">Eklendi: ${formatDateTime(entry.createdAt)}</div>
-      </div>
-      <div style="background:#fdf6f0;border-left:3px solid #7a1a22;padding:11px 15px;margin-bottom:22px;border-radius:0 4px 4px 0">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#7a1a22;margin-bottom:4px;font-weight:600">Günün Amacı</div>
-        <div style="font-size:13px;color:#333;font-style:italic">${entry.amac}</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">
-        ${sec("Yapılan Çalışmalar", entry.yapilan)}
-        ${sec("Edinilen Bilgiler / Kazanımlar", entry.kazanimlar)}
-        ${entry.problemler?.length ? sec("Karşılaşılan Problemler", entry.problemler) : ""}
-        ${entry.cozumler?.length ? sec("Uygulanan Çözümler", entry.cozumler) : ""}
-      </div>
-      <div style="margin-top:18px;border-top:1px solid #e0e0e0;padding-top:16px">
-        <div style="font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:#7a1a22;margin-bottom:8px;font-weight:600">Kullanılan Teknolojiler</div>
-        <div>${entry.teknolojiler.map((t) => `<span style="display:inline-block;padding:3px 10px;border:1px solid #7a1a22;border-radius:20px;font-size:11px;color:#7a1a22;margin:2px 4px 2px 0;font-family:sans-serif">${t}</span>`).join("")}</div>
-      </div>
-      ${imagesHtml}
-    </div>`;
-
-  const wrapper = document.createElement("div");
-  wrapper.style.cssText = "position:absolute;left:-9999px;top:0;";
-  wrapper.innerHTML = htmlContent;
-  document.body.appendChild(wrapper);
-
-  try {
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
-    ]);
-    const canvas = await html2canvas(wrapper.firstChild as HTMLElement, {
-      scale: 2, useCORS: true, allowTaint: true, backgroundColor: "#ffffff",
-    });
-    const pdf = new jsPDF({ orientation: "p", unit: "mm", format: "a4" });
-    const pageW = 210, pageH = 297;
-    const imgW = pageW;
-    const imgH = (canvas.height * imgW) / canvas.width;
-    const dataUrl = canvas.toDataURL("image/png");
-    pdf.addImage(dataUrl, "PNG", 0, 0, imgW, imgH);
-    let remaining = imgH - pageH, offset = -pageH;
-    while (remaining > 0) {
-      pdf.addPage();
-      pdf.addImage(dataUrl, "PNG", 0, offset, imgW, imgH);
-      remaining -= pageH; offset -= pageH;
+  const html = `<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>Staj Defteri – ${entry.gun}. Gün</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:Georgia,serif;color:#1a1a1a;background:#fff;padding:48px 52px}
+    @media print{
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      @page{margin:15mm}
     }
-    pdf.save(`staj-defteri-${entry.gun}-gun.pdf`);
-  } finally {
-    document.body.removeChild(wrapper);
-  }
+  </style>
+</head>
+<body>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #7a1a22;padding-bottom:14px;margin-bottom:22px">
+    <div>
+      <div style="font-size:9px;text-transform:uppercase;letter-spacing:.18em;color:#7a1a22;margin-bottom:5px">Staj Defteri</div>
+      <h1 style="font-size:24px;color:#1a1a1a">${entry.gun}. Gün — ${entry.tarih}</h1>
+    </div>
+    <div style="font-size:10px;color:#999;text-align:right">Eklendi: ${formatDateTime(entry.createdAt)}</div>
+  </div>
+  <div style="background:#fdf6f0;border-left:3px solid #7a1a22;padding:11px 15px;margin-bottom:22px;border-radius:0 4px 4px 0">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#7a1a22;margin-bottom:4px;font-weight:600">Günün Amacı</div>
+    <div style="font-size:13px;color:#333;font-style:italic">${entry.amac}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 32px">
+    ${sec("Yapılan Çalışmalar", entry.yapilan)}
+    ${sec("Edinilen Bilgiler / Kazanımlar", entry.kazanimlar)}
+    ${entry.problemler?.length ? sec("Karşılaşılan Problemler", entry.problemler) : ""}
+    ${entry.cozumler?.length ? sec("Uygulanan Çözümler", entry.cozumler) : ""}
+  </div>
+  <div style="margin-top:18px;border-top:1px solid #e0e0e0;padding-top:16px">
+    <div style="font-size:9px;text-transform:uppercase;letter-spacing:.14em;color:#7a1a22;margin-bottom:8px;font-weight:600">Kullanılan Teknolojiler</div>
+    <div>${entry.teknolojiler.map((t) => `<span style="display:inline-block;padding:3px 10px;border:1px solid #7a1a22;border-radius:20px;font-size:11px;color:#7a1a22;margin:2px 4px 2px 0;font-family:sans-serif">${t}</span>`).join("")}</div>
+  </div>
+  ${imagesHtml}
+  <script>window.addEventListener("load",function(){window.print();window.onafterprint=function(){window.close();}});<\/script>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  if (!win) { alert("Açılır pencere engellendi. Tarayıcı ayarlarından izin ver."); return; }
+  win.document.write(html);
+  win.document.close();
 }
 
 /* ── Görsel yükleme (form içi önizleme) ── */
@@ -229,12 +219,8 @@ function DayCard({ entry, index, onDelete, isAdmin, authToken }: {
   entry: DiaryEntry; index: number; onDelete: (id: string) => void; isAdmin: boolean; authToken: string;
 }) {
   const [confirm, setConfirm] = useState(false);
-  const [pdfLoading, setPdfLoading] = useState(false);
 
-  async function handlePDF() {
-    setPdfLoading(true);
-    try { await generatePDF(entry); } finally { setPdfLoading(false); }
-  }
+  function handlePDF() { generatePDF(entry); }
 
   return (
     <article className="card-glass rounded-xl p-6 md:p-8 fade-up" style={{ animationDelay: `${index * 0.1}s` }}>
@@ -258,21 +244,17 @@ function DayCard({ entry, index, onDelete, isAdmin, authToken }: {
             style={{ color: "rgba(249,243,232,0.6)", fontFamily: "'Playfair Display', serif" }}>
             {entry.amac}
           </p>
-          {isAdmin && (
-            <div className="flex items-center gap-2">
-              <button onClick={handlePDF} disabled={pdfLoading}
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-80 disabled:opacity-40"
-                style={{ background: "rgba(212,168,85,0.12)", border: "1px solid rgba(212,168,85,0.35)", color: "var(--gold-light)" }}>
-                {pdfLoading ? <span style={{ fontSize: "0.65rem" }}>⏳ Hazırlanıyor...</span> : (
-                  <>
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                    </svg>
-                    PDF İndir
-                  </>
-                )}
-              </button>
-              {confirm ? (
+          <div className="flex items-center gap-2">
+            <button onClick={handlePDF}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-opacity hover:opacity-80"
+              style={{ background: "rgba(212,168,85,0.12)", border: "1px solid rgba(212,168,85,0.35)", color: "var(--gold-light)" }}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              PDF İndir
+            </button>
+            {isAdmin && (
+              confirm ? (
                 <div className="flex gap-2">
                   <button onClick={() => onDelete(entry.id)} className="text-xs px-2 py-1 rounded"
                     style={{ background: "#7a1a22", color: "var(--cream)" }}>Sil</button>
@@ -283,9 +265,9 @@ function DayCard({ entry, index, onDelete, isAdmin, authToken }: {
                 <button onClick={() => setConfirm(true)} title="Sil"
                   className="opacity-30 hover:opacity-70 transition-opacity text-lg leading-none"
                   style={{ color: "var(--cream)" }}>×</button>
-              )}
-            </div>
-          )}
+              )
+            )}
+          </div>
         </div>
       </div>
 
